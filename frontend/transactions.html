@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Transactions — ChainDocs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <nav id="sidebar-nav" class="sidebar"></nav>
+
+        <div class="main-content">
+            <header class="top-header">
+                <div>
+                    <h5 class="fw-bold mb-0">Trade Transactions Management</h5>
+                    <small class="text-muted">Manage Letters of Credit, shipment contracts & settlement statuses</small>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTxModal">
+                        <i class="bi bi-plus-circle me-1"></i> Initiate Trade
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-body">
+                <!-- Search & Filters -->
+                <div class="card border-0 shadow-sm p-3 mb-4">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Search reference, buyer, or description..." oninput="filterTransactions()">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="statusFilter" class="form-select" onchange="filterTransactions()">
+                                <option value="ALL">All Statuses</option>
+                                <option value="PENDING">Pending Approval</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="COMPLETED">Completed</option>
+                                <option value="DISPUTED">Disputed</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Table -->
+                <div class="card border-0 shadow-sm">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase">
+                                <tr>
+                                    <th>Reference No</th>
+                                    <th>Buyer & Seller</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="txTableBody">
+                                <tr><td colspan="6" class="text-center py-4 text-muted">Loading transactions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal: Initiate Trade Transaction -->
+    <div class="modal fade" id="newTxModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Initiate New Trade Transaction</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="createTxForm" onsubmit="handleCreateTx(event)">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Trade Description / Goods</label>
+                            <input type="text" id="tx_desc" class="form-control" placeholder="e.g. 5,000 MT Agricultural Grain Shipment" required>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-8">
+                                <label class="form-label small fw-semibold">Contract Amount</label>
+                                <input type="number" step="0.01" id="tx_amount" class="form-control" placeholder="250000.00" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small fw-semibold">Currency</label>
+                                <select id="tx_currency" class="form-select">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="EUR">EUR (€)</option>
+                                    <option value="GBP">GBP (£)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Counterparty (Seller / Exporter)</label>
+                            <select id="tx_seller" class="form-select">
+                                <option value="usr-crp-02">Pacific Maritime Logistics Corp (David Chen)</option>
+                                <option value="usr-crp-01">Apex Global Commodities Ltd (Elena Rostova)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm">Submit to Blockchain</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/app.js"></script>
+    <script>
+        App.requireAuth();
+        App.initSidebar('transactions');
+
+        let allTransactions = [];
+
+        async function loadTransactions() {
+            const res = await App.request('/transactions');
+            if (res && res.ok) {
+                allTransactions = res.data.data;
+                renderTable(allTransactions);
+            }
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('txTableBody');
+            if (!list.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No trade transactions found.</td></tr>`;
+                return;
+            }
+
+            const currentUser = App.getUser();
+            const isBankOrAdmin = currentUser && (currentUser.role === 'BANK' || currentUser.role === 'ADMIN');
+
+            tbody.innerHTML = list.map(tx => {
+                let badgeClass = 'badge-pending';
+                if (tx.status === 'IN_PROGRESS') badgeClass = 'badge-inprogress';
+                if (tx.status === 'COMPLETED') badgeClass = 'badge-completed';
+                if (tx.status === 'DISPUTED') badgeClass = 'badge-disputed';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark font-monospace">${tx.reference_number}</div>
+                            <div class="small text-muted text-truncate" style="max-width: 280px;">${tx.description || 'Commercial Trade Contract'}</div>
+                        </td>
+                        <td>
+                            <div class="small"><b>Buyer:</b> ${tx.buyer_name}</div>
+                            <div class="small text-muted"><b>Seller:</b> ${tx.seller_name}</div>
+                        </td>
+                        <td class="fw-bold">${tx.currency} ${Number(tx.amount).toLocaleString()}</td>
+                        <td><span class="badge-status ${badgeClass}">${tx.status}</span></td>
+                        <td class="small text-muted">${new Date(tx.created_at).toLocaleDateString()}</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                ${tx.status === 'PENDING' && isBankOrAdmin ? `
+                                    <button class="btn btn-outline-success" onclick="approveTx('${tx.id}')" title="Approve Trade"><i class="bi bi-check-lg"></i> Approve</button>
+                                ` : ''}
+                                ${tx.status === 'IN_PROGRESS' ? `
+                                    <button class="btn btn-outline-primary" onclick="completeTx('${tx.id}')" title="Complete"><i class="bi bi-check2-all"></i> Complete</button>
+                                    <button class="btn btn-outline-danger" onclick="disputeTx('${tx.id}')" title="Raise Dispute"><i class="bi bi-exclamation-triangle"></i> Dispute</button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterTransactions() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+
+            const filtered = allTransactions.filter(tx => {
+                const matchQuery = tx.reference_number.toLowerCase().includes(query) ||
+                                   tx.buyer_name.toLowerCase().includes(query) ||
+                                   (tx.description && tx.description.toLowerCase().includes(query));
+                const matchStatus = status === 'ALL' || tx.status === status;
+                return matchQuery && matchStatus;
+            });
+            renderTable(filtered);
+        }
+
+        async function handleCreateTx(e) {
+            e.preventDefault();
+            const description = document.getElementById('tx_desc').value;
+            const amount = parseFloat(document.getElementById('tx_amount').value);
+            const currency = document.getElementById('tx_currency').value;
+            const seller_id = document.getElementById('tx_seller').value;
+
+            const res = await App.request('/transactions', {
+                method: 'POST',
+                body: JSON.stringify({ description, amount, currency, seller_id })
+            });
+
+            if (res && res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('newTxModal')).hide();
+                document.getElementById('createTxForm').reset();
+                loadTransactions();
+            } else {
+                alert(res?.data?.message || 'Failed to initiate transaction.');
+            }
+        }
+
+        async function approveTx(id) {
+            if (!confirm('Authorize this Letter of Credit / Transaction as the bank?')) return;
+            const res = await App.request(`/transactions/${id}/approve`, { method: 'POST' });
+            if (res && res.ok) loadTransactions();
+            else alert(res?.data?.message || 'Error approving transaction.');
+        }
+
+        async function completeTx(id) {
+            if (!confirm('Mark transaction as COMPLETED and settle trade financing?')) return;
+            const res = await App.request(`/transactions/${id}/complete`, { method: 'POST' });
+            if (res && res.ok) loadTransactions();
+        }
+
+        async function disputeTx(id) {
+            const reason = prompt('Please specify dispute grounds (e.g. Cargo discrepancy or damaged goods):');
+            if (!reason) return;
+            const res = await App.request(`/transactions/${id}/dispute`, {
+                method: 'POST',
+                body: JSON.stringify({ reason })
+            });
+            if (res && res.ok) loadTransactions();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTransactions);
+    </script>
+</body>
+</html>

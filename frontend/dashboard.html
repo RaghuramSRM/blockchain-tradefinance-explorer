@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Dashboard — ChainDocs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav id="sidebar-nav" class="sidebar"></nav>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <header class="top-header">
+                <div>
+                    <h5 class="fw-bold mb-0">Trade Finance Network Overview</h5>
+                    <small class="text-muted">Real-time ledger statistics & compliance monitoring</small>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-2 px-3">
+                        <i class="bi bi-circle-fill small me-1"></i> Ledger Node Sync: Active
+                    </span>
+                    <a href="/transactions.html" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg"></i> New Transaction
+                    </a>
+                </div>
+            </header>
+
+            <main class="content-body">
+                <!-- Metric Summary Cards -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Total Trade Volume</div>
+                            <div class="metric-value text-primary" id="m-volume">$0</div>
+                            <div class="small text-muted mt-2"><i class="bi bi-arrow-up text-success"></i> Across active trade lanes</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Total Transactions</div>
+                            <div class="metric-value" id="m-tx">0</div>
+                            <div class="small text-muted mt-2">Commercial L/Cs & Invoices</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Verified Documents</div>
+                            <div class="metric-value text-success" id="m-docs">0</div>
+                            <div class="small text-muted mt-2">SHA-256 Hash Anchored</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Active Ledger Blocks</div>
+                            <div class="metric-value text-info" id="m-blocks">0</div>
+                            <div class="small text-muted mt-2">Append-only audit blocks</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-7">
+                        <div class="card border-0 shadow-sm p-4 h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pie-chart-fill text-primary"></i> Transaction Status Distribution</h6>
+                            <div style="height: 260px;">
+                                <canvas id="txStatusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card border-0 shadow-sm p-4 h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-bar-chart-fill text-info"></i> Documents by Trade Category</h6>
+                            <div style="height: 260px;">
+                                <canvas id="docTypeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Ledger Anchors & Counterparty Risk Table -->
+                <div class="row g-4">
+                    <div class="col-md-12">
+                        <div class="card border-0 shadow-sm p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0"><i class="bi bi-shield-lock-fill text-warning"></i> Counterparty Compliance & Risk Scoring</h6>
+                                <a href="/analytics.html" class="btn btn-sm btn-link text-decoration-none">View Full Analytics &rarr;</a>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light small text-uppercase">
+                                        <tr>
+                                            <th>Participant Name</th>
+                                            <th>Organization</th>
+                                            <th>Compliance Score</th>
+                                            <th>Risk Classification</th>
+                                            <th>Scoring Method</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="risk-table-body">
+                                        <tr><td colspan="5" class="text-center text-muted py-3">Loading compliance records...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        App.requireAuth();
+        App.initSidebar('dashboard');
+
+        async function loadDashboard() {
+            const res = await App.request('/analytics');
+            if (!res || !res.ok) return;
+
+            const summary = res.data.summary;
+            document.getElementById('m-volume').textContent = '$' + Number(summary.total_trade_volume).toLocaleString();
+            document.getElementById('m-tx').textContent = summary.total_transactions;
+            document.getElementById('m-docs').textContent = summary.documents_verified;
+            document.getElementById('m-blocks').textContent = summary.ledger_blocks;
+
+            // Render Transaction Chart
+            const txData = res.data.transactions_by_status;
+            new Chart(document.getElementById('txStatusChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: txData.map(d => d.status),
+                    datasets: [{
+                        data: txData.map(d => d.count),
+                        backgroundColor: ['#10b981', '#ef4444', '#0284c7', '#f59e0b']
+                    }]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+
+            // Render Documents Chart
+            const docData = res.data.documents_by_type;
+            new Chart(document.getElementById('docTypeChart'), {
+                type: 'bar',
+                data: {
+                    labels: docData.map(d => d.doc_type),
+                    datasets: [{
+                        label: 'Document Count',
+                        data: docData.map(d => d.count),
+                        backgroundColor: '#0284c7'
+                    }]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            // Populate Risk Table
+            const riskRows = res.data.risk_scores.map(r => {
+                let badgeClass = 'bg-success';
+                let rating = 'LOW RISK';
+                if (r.score < 80) { badgeClass = 'bg-warning text-dark'; rating = 'MODERATE'; }
+                if (r.score < 60) { badgeClass = 'bg-danger'; rating = 'ELEVATED'; }
+
+                return `
+                    <tr>
+                        <td class="fw-semibold text-dark">${r.user_name}</td>
+                        <td>${r.org_name}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold">${r.score}/100</span>
+                                <div class="progress flex-grow-1" style="height: 6px; width: 80px;">
+                                    <div class="progress-bar ${badgeClass}" style="width: ${r.score}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge ${badgeClass}">${rating}</span></td>
+                        <td class="small text-muted">${r.calculation_method}</td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('risk-table-body').innerHTML = riskRows;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>

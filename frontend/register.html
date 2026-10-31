@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Organization Account — ChainDocs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100 py-5">
+
+    <div class="container" style="max-width: 520px;">
+        <div class="text-center mb-4">
+            <a href="/" class="d-inline-flex align-items-center gap-2 text-decoration-none text-dark fw-bold fs-3">
+                <i class="bi bi-shield-shaded text-info fs-2"></i> ChainDocs
+            </a>
+            <p class="text-muted small mt-1">Enterprise Participant Registration (Review 02 Client-Side Validation)</p>
+        </div>
+
+        <div class="metric-card p-4">
+            <div id="alert-box" class="alert d-none py-2 small"></div>
+
+            <form id="regForm" onsubmit="handleRegister(event)" novalidate>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Full Legal Name</label>
+                    <input type="text" id="name" class="form-control" placeholder="e.g. Alexander Hamilton" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Corporate Email Address</label>
+                    <input type="email" id="email" class="form-control" placeholder="e.g. alex@tradecorp.com" required>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Organization Name</label>
+                        <input type="text" id="org_name" class="form-control" placeholder="e.g. Atlantic Shipping Corp" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Participant Role</label>
+                        <select id="role" class="form-select">
+                            <option value="CORPORATE">Corporate (Trader / Freight)</option>
+                            <option value="BANK">Commercial Trade Bank</option>
+                            <option value="AUDITOR">Auditor / Compliance Officer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Password</label>
+                        <input type="password" id="password" class="form-control" placeholder="Min 6 characters" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold">Confirm Password</label>
+                        <input type="password" id="confirm_password" class="form-control" placeholder="Re-enter password" required>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="termsCheck" required>
+                    <label class="form-check-label small text-muted" for="termsCheck">
+                        I accept the blockchain protocol compliance terms & trade finance rules.
+                    </label>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn btn-primary w-100 py-2 fw-semibold">
+                    <span id="btnText">Create Organization Account</span>
+                    <span id="btnSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                </button>
+            </form>
+
+            <div class="mt-4 pt-3 border-top text-center">
+                <span class="small text-muted">Already registered? </span>
+                <a href="/login.html" class="small fw-semibold text-primary text-decoration-none">Sign in here</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        async function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const org_name = document.getElementById('org_name').value.trim();
+            const role = document.getElementById('role').value;
+            const password = document.getElementById('password').value;
+            const confirm_password = document.getElementById('confirm_password').value;
+            const terms = document.getElementById('termsCheck').checked;
+            const alertBox = document.getElementById('alert-box');
+
+            alertBox.classList.add('d-none');
+
+            // JavaScript Client-side Validation (Ex 3 Rubric)
+            let hasError = false;
+
+            if (name.length < 3) {
+                Validator.showError('name', 'Name must contain at least 3 characters.');
+                hasError = true;
+            } else {
+                Validator.clearError('name');
+            }
+
+            if (!Validator.validateEmail(email)) {
+                Validator.showError('email', 'Enter a valid corporate email address.');
+                hasError = true;
+            } else {
+                Validator.clearError('email');
+            }
+
+            if (!org_name) {
+                Validator.showError('org_name', 'Organization name is required.');
+                hasError = true;
+            } else {
+                Validator.clearError('org_name');
+            }
+
+            if (password.length < 6) {
+                Validator.showError('password', 'Password must be at least 6 characters.');
+                hasError = true;
+            } else {
+                Validator.clearError('password');
+            }
+
+            if (password !== confirm_password) {
+                Validator.showError('confirm_password', 'Passwords do not match.');
+                hasError = true;
+            } else {
+                Validator.clearError('confirm_password');
+            }
+
+            if (!terms) {
+                alertBox.className = 'alert alert-warning py-2 small';
+                alertBox.textContent = 'Please accept the blockchain terms and conditions.';
+                alertBox.classList.remove('d-none');
+                return;
+            }
+
+            if (hasError) return;
+
+            const res = await App.request('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({ name, email, org_name, role, password })
+            });
+
+            if (res && res.ok && res.data.access_token) {
+                App.setSession(res.data.access_token, res.data.user);
+                alertBox.className = 'alert alert-success py-2 small';
+                alertBox.textContent = 'Registration completed successfully! Redirecting...';
+                alertBox.classList.remove('d-none');
+                setTimeout(() => window.location.href = '/dashboard.html', 1000);
+            } else {
+                alertBox.className = 'alert alert-danger py-2 small';
+                alertBox.textContent = res?.data?.message || 'Registration failed. Check server connection.';
+                alertBox.classList.remove('d-none');
+            }
+        }
+    </script>
+</body>
+</html>

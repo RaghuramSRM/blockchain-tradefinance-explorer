@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Ledger Explorer — ChainDocs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <nav id="sidebar-nav" class="sidebar"></nav>
+
+        <div class="main-content">
+            <header class="top-header">
+                <div>
+                    <h5 class="fw-bold mb-0">Append-Only Blockchain Ledger Explorer</h5>
+                    <small class="text-muted">Cryptographic block audit timeline & SHA-256 parent hash verification</small>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="loadLedger()">
+                        <i class="bi bi-arrow-repeat"></i> Verify Chain
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-body">
+                <div class="card border-0 shadow-sm p-4 mb-4 bg-primary text-white">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-link-45deg display-5"></i>
+                        <div>
+                            <h6 class="fw-bold mb-1">Cryptographic Hash-Linked Audit Chain</h6>
+                            <p class="mb-0 small opacity-75">
+                                Every block below references the cryptographic hash of its predecessor (<span class="font-monospace">previous_hash</span>). 
+                                Any alteration to historical trade documents immediately breaks downstream block validity.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ledger Timeline Container -->
+                <div class="ledger-timeline" id="ledgerTimeline">
+                    <div class="text-muted py-4">Reading ledger blocks...</div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        App.requireAuth();
+        App.initSidebar('ledger');
+
+        async function loadLedger() {
+            const res = await App.request('/ledger');
+            if (!res || !res.ok) return;
+
+            const container = document.getElementById('ledgerTimeline');
+            const blocks = res.data.data;
+
+            if (!blocks.length) {
+                container.innerHTML = `<div class="text-muted py-4">No ledger blocks found.</div>`;
+                return;
+            }
+
+            container.innerHTML = blocks.map((b, idx) => `
+                <div class="ledger-block shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-dark font-monospace">${b.id}</span>
+                            <span class="badge bg-info text-dark fw-bold">${b.action}</span>
+                            ${b.tx_ref ? `<span class="badge bg-light text-dark border">${b.tx_ref}</span>` : ''}
+                        </div>
+                        <span class="small text-muted"><i class="bi bi-clock"></i> ${new Date(b.created_at).toLocaleString()}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-dark">Actor: <span class="fw-normal text-muted">${b.actor_name || 'System Genesis'}</span></div>
+                        ${b.doc_number ? `<div class="small fw-semibold text-dark">Document: <span class="fw-normal text-muted">${b.doc_number} (${b.doc_type})</span></div>` : ''}
+                        ${b.metadata ? `<div class="small text-muted bg-light p-2 rounded mt-2 font-monospace">${b.metadata}</div>` : ''}
+                    </div>
+
+                    <div class="row g-2 small">
+                        <div class="col-md-6">
+                            <div class="text-muted">Previous Block Hash:</div>
+                            <div class="hash-pill">${b.previous_hash}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-muted">Current Entry Hash:</div>
+                            <div class="hash-pill text-success">${b.entry_hash}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', loadLedger);
+    </script>
+</body>
+</html>

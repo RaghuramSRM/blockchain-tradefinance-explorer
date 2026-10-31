@@ -1,0 +1,26 @@
+# Binaries and PHP runtime
+bin/php/
+bin/
+
+# Temporary and upload directories
+uploads/*
+!uploads/.gitkeep
+
+# SQLite database file (contains local test data)
+database/*.sqlite
+database/*.sqlite-journal
+database/*.db
+
+# Embedded sub-project / large dependency folders
+TradeFinanceMain/
+
+# Environment and sensitive keys
+.env
+.env.*
+*.log
+
+# OS & Editor generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

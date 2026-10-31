@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Analytics & Compliance — ChainDocs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+    <div class="app-wrapper">
+        <nav id="sidebar-nav" class="sidebar"></nav>
+
+        <div class="main-content">
+            <header class="top-header">
+                <div>
+                    <h5 class="fw-bold mb-0">Risk Analytics & Regulatory Compliance</h5>
+                    <small class="text-muted">Automated Basel III & CAMELS risk assessment framework</small>
+                </div>
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="exportCSV()">
+                        <i class="bi bi-download me-1"></i> Export CSV Report
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-body">
+                <!-- Risk Cards Grid -->
+                <div class="row g-4 mb-4" id="riskScoresGrid">
+                    <div class="col-12 text-center py-4 text-muted">Loading risk models...</div>
+                </div>
+
+                <!-- Monthly Volume Trends Chart -->
+                <div class="card border-0 shadow-sm p-4 mb-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-graph-up text-primary"></i> Trade Finance Volume Trajectory (2026 Simulation)</h6>
+                    <div style="height: 300px;">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        App.requireAuth();
+        App.initSidebar('analytics');
+
+        let analyticsData = null;
+
+        async function loadAnalytics() {
+            const res = await App.request('/analytics');
+            if (!res || !res.ok) return;
+
+            analyticsData = res.data;
+
+            // Render Risk Score Cards
+            const grid = document.getElementById('riskScoresGrid');
+            grid.innerHTML = analyticsData.risk_scores.map(r => `
+                <div class="col-md-4">
+                    <div class="metric-card h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-dark">${r.user_name}</span>
+                            <span class="badge ${r.score >= 85 ? 'bg-success' : 'bg-warning text-dark'}">${r.score}/100</span>
+                        </div>
+                        <div class="small text-muted mb-2">${r.org_name}</div>
+                        <p class="small text-secondary mb-3">${r.rationale}</p>
+                        <div class="small text-muted pt-2 border-top">
+                            <b>Model:</b> ${r.calculation_method}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Volume Chart
+            new Chart(document.getElementById('volumeChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+                    datasets: [{
+                        label: 'Gross Trade Financing ($ in Millions)',
+                        data: [1.2, 1.9, 2.4, 2.1, 2.8, 3.2, 3.8, 4.1, 3.9, 4.5],
+                        borderColor: '#0284c7',
+                        backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function exportCSV() {
+            if (!analyticsData) return;
+            let csv = "User,Organization,Score,Rationale,Model\n";
+            analyticsData.risk_scores.forEach(r => {
+                csv += `"${r.user_name}","${r.org_name}","${r.score}","${r.rationale}","${r.calculation_method}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'ChainDocs_Risk_Compliance_Report.csv');
+            a.click();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadAnalytics);
+    </script>
+</body>
+</html>
