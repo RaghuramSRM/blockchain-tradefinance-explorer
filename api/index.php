@@ -51,6 +51,14 @@ function getAuthUser(PDO $pdo): ?array {
     return null;
 }
 
+function requireAuth(PDO $pdo): array {
+    $user = getAuthUser($pdo);
+    if (!$user) {
+        jsonResponse(['status' => 'error', 'message' => 'Authentication required'], 401);
+    }
+    return $user;
+}
+
 // -------------------------------------------------------------
 // ROUTE DISPATCHER
 // -------------------------------------------------------------
@@ -72,13 +80,7 @@ try {
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
-            // Default demo password allows "Password123!" for evaluation
-            $valid = false;
-            if ($user) {
-                if (password_verify($password, $user['hashed_password']) || $password === 'Password123!' || $password === 'admin123') {
-                    $valid = true;
-                }
-            }
+            $valid = $user && password_verify($password, $user['hashed_password']);
 
             if (!$valid) {
                 jsonResponse(['status' => 'error', 'message' => 'Invalid email or password'], 401);
@@ -110,7 +112,9 @@ try {
             $name = trim($body['name'] ?? '');
             $email = trim($body['email'] ?? '');
             $password = $body['password'] ?? '';
-            $role = strtoupper(trim($body['role'] ?? 'CORPORATE'));
+            $role = getenv('APP_ENV') === 'production'
+                ? 'CORPORATE'
+                : strtoupper(trim($body['role'] ?? 'CORPORATE'));
             $orgName = trim($body['org_name'] ?? 'Independent Trading Co');
 
             // Client & Server-side Validation
@@ -398,6 +402,7 @@ try {
 
     // 4. LEDGER TIMELINE SERVICE (/api/ledger)
     if ($segments[0] === 'ledger') {
+        requireAuth($pdo);
         $stmt = $pdo->query("
             SELECT l.*, u.name as actor_name, d.doc_number, d.doc_type, t.reference_number as tx_ref
             FROM ledger_entries l
@@ -412,6 +417,7 @@ try {
 
     // 5. ANALYTICS & RISK DASHBOARD SERVICE (/api/analytics)
     if ($segments[0] === 'analytics') {
+        requireAuth($pdo);
         $txCount = $pdo->query("SELECT status, count(*) as count FROM trade_transactions GROUP BY status")->fetchAll();
         $totalVolume = $pdo->query("SELECT SUM(amount) as total FROM trade_transactions")->fetchColumn() ?: 0;
         $docStats = $pdo->query("SELECT doc_type, count(*) as count FROM documents GROUP BY doc_type")->fetchAll();
@@ -435,6 +441,7 @@ try {
 
     // 6. ALERTS & NOTIFICATIONS (/api/alerts)
     if ($segments[0] === 'alerts') {
+        requireAuth($pdo);
         $stmt = $pdo->query("SELECT * FROM alerts ORDER BY created_at DESC LIMIT 20");
         $alerts = $stmt->fetchAll();
         jsonResponse(['status' => 'success', 'data' => $alerts]);
@@ -442,6 +449,7 @@ try {
 
     // 7. ORGANIZATIONS (/api/orgs)
     if ($segments[0] === 'orgs') {
+        requireAuth($pdo);
         $stmt = $pdo->query("SELECT * FROM organizations ORDER BY name ASC");
         jsonResponse(['status' => 'success', 'data' => $stmt->fetchAll()]);
     }

@@ -24,16 +24,15 @@
             <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Email Address</label>
-                    <input type="email" id="email" class="form-control" placeholder="user@domain.com" required value="admin@chaindocs.io">
+                    <input type="email" id="email" class="form-control" placeholder="user@domain.com" required>
                 </div>
 
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <label class="form-label small fw-semibold">Password</label>
-                        <a href="#" class="small text-muted text-decoration-none" onclick="alert('Demo reset instructions: Use Password123!')">Forgot?</a>
                     </div>
                     <div class="input-group">
-                        <input type="password" id="password" class="form-control" placeholder="••••••••" required value="Password123!">
+                        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
                         <button class="btn btn-outline-secondary" type="button" onclick="togglePassword()">
                             <i class="bi bi-eye" id="toggleIcon"></i>
                         </button>
@@ -50,15 +49,6 @@
                 <span class="small text-muted">Don't have an enterprise account? </span>
                 <a href="/register.html" class="small fw-semibold text-primary text-decoration-none">Register here</a>
             </div>
-        </div>
-
-        <!-- Demo credentials badge for easy evaluation during viva -->
-        <div class="mt-4 p-3 bg-white border rounded shadow-sm small text-muted">
-            <div class="fw-bold text-dark mb-1"><i class="bi bi-info-circle-fill text-info"></i> Evaluation Quick-Logins:</div>
-            <div>&bull; <b>Admin</b>: <code>admin@chaindocs.io</code> (Password: <code>Password123!</code>)</div>
-            <div>&bull; <b>Bank</b>: <code>bank@scb.com</code> (Password: <code>Password123!</code>)</div>
-            <div>&bull; <b>Corporate</b>: <code>buyer@apexcommodities.com</code> (Password: <code>Password123!</code>)</div>
-            <div>&bull; <b>Auditor</b>: <code>auditor@deloitte.com</code> (Password: <code>Password123!</code>)</div>
         </div>
     </div>
 

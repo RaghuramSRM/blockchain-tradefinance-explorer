@@ -35,7 +35,7 @@ class Database {
                 ]);
             } else {
                 // SQLite fallback for standalone local execution / instant viva demo
-                $dbFile = __DIR__ . '/../../database/chaindocs.sqlite';
+                $dbFile = getenv('SQLITE_PATH') ?: __DIR__ . '/../../database/chaindocs.sqlite';
                 $needsInit = !file_exists($dbFile);
                 self::$pdo = new PDO("sqlite:" . $dbFile, null, null, [
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -47,8 +47,12 @@ class Database {
                 }
             }
         } catch (PDOException $e) {
-            // If MySQL / PgSQL fails, seamlessly fallback to SQLite so Review 02 evaluator never encounters a crash
-            $dbFile = __DIR__ . '/../../database/chaindocs.sqlite';
+            if (getenv('APP_ENV') === 'production') {
+                throw $e;
+            }
+
+            // Keep the SQLite fallback for local development only.
+            $dbFile = getenv('SQLITE_PATH') ?: __DIR__ . '/../../database/chaindocs.sqlite';
             $needsInit = !file_exists($dbFile);
             self::$pdo = new PDO("sqlite:" . $dbFile, null, null, [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -70,7 +74,7 @@ class Database {
         if (file_exists($schemaPath)) {
             $pdo->exec(file_get_contents($schemaPath));
         }
-        if (file_exists($seedPath)) {
+        if (getenv('APP_ENV') !== 'production' && file_exists($seedPath)) {
             $pdo->exec(file_get_contents($seedPath));
         }
     }
